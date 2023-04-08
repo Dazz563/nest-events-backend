@@ -1,33 +1,30 @@
-import { Attendee } from 'src/attendees/entities/attendee.entity';
+import { Event } from 'src/events/entities/event.entity';
 import {
   Column,
   CreateDateColumn,
   Entity,
-  OneToMany,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
 @Entity()
-export class Event {
+export class Attendee {
   @PrimaryGeneratedColumn()
   id: number;
   @Column()
   name: string;
-  @Column()
-  description: string;
-  @Column()
-  when: Date;
-  @Column()
-  address: string;
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  // Realtionships
-  @OneToMany(() => Attendee, (attendee) => attendee.event, {
-    cascade: true,
+  // Relations
+  @ManyToOne(() => Event, (event) => event.attendees, {
+    nullable: false,
+    onDelete: 'CASCADE',
   })
-  attendees: Attendee[];
+  @JoinColumn({ name: 'event_id' })
+  event: Event;
 }
