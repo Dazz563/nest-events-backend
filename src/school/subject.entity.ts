@@ -29,5 +29,5 @@ export class Subject {
       referencedColumnName: 'id',
     },
   })
-  teachers: Teacher[]; //
+  teachers: Teacher[];
 }

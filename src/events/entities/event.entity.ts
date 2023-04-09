@@ -2,6 +2,7 @@ import { Attendee } from 'src/attendees/entities/attendee.entity';
 import {
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   Entity,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -24,10 +25,18 @@ export class Event {
   createdAt: Date;
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+  @DeleteDateColumn({ name: 'deleted_at' })
+  deletedAt: Date;
 
   // Realtionships
   @OneToMany(() => Attendee, (attendee) => attendee.event, {
     cascade: true,
   })
   attendees: Attendee[];
+
+  // Virtual properties
+  attendeeCount?: number;
+  attendeeRejected?: number;
+  attendeeMaybe?: number;
+  attendeeAccepted?: number;
 }

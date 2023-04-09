@@ -9,6 +9,12 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+export enum AttendeeAnswerEnum {
+  Accepted = 1,
+  Maybe,
+  Rejected,
+}
+
 @Entity()
 export class Attendee {
   @PrimaryGeneratedColumn()
@@ -19,6 +25,11 @@ export class Attendee {
   createdAt: Date;
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+  @Column('enum', {
+    enum: AttendeeAnswerEnum,
+    default: AttendeeAnswerEnum.Accepted,
+  })
+  answer: AttendeeAnswerEnum;
 
   // Relations
   @ManyToOne(() => Event, (event) => event.attendees, {
