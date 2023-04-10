@@ -6,6 +6,8 @@ import { DeleteResult, Repository } from 'typeorm';
 import { AttendeeAnswerEnum } from 'src/attendees/entities/attendee.entity';
 import { ListEvents, WhenEventFilter } from './dto/lists-events';
 import { PaginateOptions, paginate } from 'src/pagination/paginator';
+import { User } from 'src/auth/entities/user.entity';
+import { Event } from './entities/event.entity';
 
 @Injectable()
 export class EventsService {
@@ -18,17 +20,15 @@ export class EventsService {
   private getEventsBaseQuery() {
     console.log('service');
 
-    return this.eventRepo
-      .createQueryBuilder('event')
-      .orderBy('event.id', 'DESC');
+    return this.eventRepo.createQueryBuilder('e').orderBy('e.id', 'DESC');
   }
 
   public getEventsWithAttendeeCountQuery() {
     return this.getEventsBaseQuery()
-      .loadRelationCountAndMap('event.attendeeCount', 'event.attendees')
+      .loadRelationCountAndMap('e.attendeeCount', 'e.attendees')
       .loadRelationCountAndMap(
-        'event.attendeeAccepted',
-        'event.attendees',
+        'e.attendeeAccepted',
+        'e.attendees',
         'attendee',
         (qb) =>
           qb.where('attendee.answer = :answer', {
@@ -36,8 +36,8 @@ export class EventsService {
           }),
       )
       .loadRelationCountAndMap(
-        'event.attendeeMaybe',
-        'event.attendees',
+        'e.attendeeMaybe',
+        'e.attendees',
         'attendee',
         (qb) =>
           qb.where('attendee.answer = :answer', {
@@ -45,8 +45,8 @@ export class EventsService {
           }),
       )
       .loadRelationCountAndMap(
-        'event.attendeeRejected',
-        'event.attendees',
+        'e.attendeeRejected',
+        'e.attendees',
         'attendee',
         (qb) =>
           qb.where('attendee.answer = :answer', {
@@ -55,42 +55,36 @@ export class EventsService {
       );
   }
 
-  private async getEventsWithAttenddeeCountFilter(filter?: ListEvents) {
+  private async getEventsWithAttendeeCountFiltered(filter?: ListEvents) {
     let query = this.getEventsWithAttendeeCountQuery();
 
     if (!filter) {
       return query;
     }
 
-    /**
-     * Filter by today, tomorrow, this week, next week
-     */
     if (filter.when) {
       if (filter.when == WhenEventFilter.Today) {
         query = query.andWhere(
-          `event.when >= CURDATE() AND event.when <= CURDATE() + INTERVAL 1 DAY`,
+          `e.when >= CURDATE() AND e.when <= CURDATE() + INTERVAL 1 DAY`,
         );
       }
 
       if (filter.when == WhenEventFilter.Tomorrow) {
         query = query.andWhere(
-          `event.when >= CURDATE() + INTERVAL 1 DAY AND event.when <= CURDATE() + INTERVAL 2 DAY`,
+          `e.when >= CURDATE() + INTERVAL 1 DAY AND e.when <= CURDATE() + INTERVAL 2 DAY`,
         );
       }
 
       if (filter.when == WhenEventFilter.ThisWeek) {
-        query = query.andWhere(
-          `YEARWEEK(event.when, 1) = YEARWEEK(CURDATE(), 1)`,
-        );
+        query = query.andWhere('YEARWEEK(e.when, 1) = YEARWEEK(CURDATE(), 1)');
       }
 
       if (filter.when == WhenEventFilter.NextWeek) {
         query = query.andWhere(
-          `YEARWEEK(event.when, 1) = YEARWEEK(CURDATE(), 1) + 1)`,
+          'YEARWEEK(e.when, 1) = YEARWEEK(CURDATE(), 1) + 1',
         );
       }
     }
-
     // Include deleted events
     query = query.withDeleted();
     return query;
@@ -101,23 +95,54 @@ export class EventsService {
     paginateOptions: PaginateOptions,
   ) {
     return await paginate(
-      await this.getEventsWithAttenddeeCountFilter(filter),
+      await this.getEventsWithAttendeeCountFiltered(filter),
       paginateOptions,
     );
   }
 
-  public async getEvent(id: number): Promise<Event> | undefined {
-    const query = this.getEventsWithAttendeeCountQuery().andWhere(
-      'event.id = :id',
-      {
-        id,
-      },
-    );
-    console.log('service');
+  // public async getEvent(id: number): Promise<Event> | undefined {
+  //   const query = this.getEventsWithAttendeeCountQuery().andWhere(
+  //     'event.id = :id',
+  //     {
+  //       id,
+  //     },
+  //   );
+  //   console.log('service');
 
-    this.logger.debug(`Query: ${query.getSql()}`);
+  //   this.logger.debug(`Query: ${query.getSql()}`);
+
+  //   return await query.getOne();
+  // }
+
+  public async getEvent(id: number): Promise<Event | undefined> {
+    const query = this.getEventsWithAttendeeCountQuery().andWhere(
+      'e.id = :id',
+      { id },
+    );
+
+    this.logger.debug(query.getSql());
 
     return await query.getOne();
+  }
+
+  public async createEvent(event: CreateEventDto, user: User): Promise<Event> {
+    return await this.eventRepo.save({
+      ...event,
+      organizer: user,
+      when: new Date(event.when),
+    });
+  }
+
+  public async updateEvent(
+    event: Event,
+    updatedEvent: UpdateEventDto,
+  ): Promise<Event> {
+    console.log('updated event: ', updatedEvent);
+    return await this.eventRepo.save({
+      ...event,
+      ...updatedEvent,
+      when: updatedEvent.when ? new Date(updatedEvent.when) : event.when,
+    });
   }
 
   public async deleteEvent(id: number): Promise<DeleteResult> {
