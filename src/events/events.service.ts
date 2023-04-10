@@ -2,9 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DeleteResult, Repository } from 'typeorm';
 import { AttendeeAnswerEnum } from 'src/attendees/entities/attendee.entity';
 import { ListEvents, WhenEventFilter } from './dto/lists-events';
+import { PaginateOptions, paginate } from 'src/pagination/paginator';
 
 @Injectable()
 export class EventsService {
@@ -54,13 +55,16 @@ export class EventsService {
       );
   }
 
-  public async getEventsWithAttenddeeCountFilter(filter?: ListEvents) {
+  private async getEventsWithAttenddeeCountFilter(filter?: ListEvents) {
     let query = this.getEventsWithAttendeeCountQuery();
 
     if (!filter) {
-      return await query.getMany();
+      return query;
     }
 
+    /**
+     * Filter by today, tomorrow, this week, next week
+     */
     if (filter.when) {
       if (filter.when == WhenEventFilter.Today) {
         query = query.andWhere(
@@ -87,8 +91,19 @@ export class EventsService {
       }
     }
 
+    // Include deleted events
     query = query.withDeleted();
-    return await query.getMany();
+    return query;
+  }
+
+  public async getEventsWithAttendeeCountFilteredPaginated(
+    filter: ListEvents,
+    paginateOptions: PaginateOptions,
+  ) {
+    return await paginate(
+      await this.getEventsWithAttenddeeCountFilter(filter),
+      paginateOptions,
+    );
   }
 
   public async getEvent(id: number): Promise<Event> | undefined {
@@ -105,19 +120,11 @@ export class EventsService {
     return await query.getOne();
   }
 
-  // async findAll() {
-  //   return await this.eventRepo.find();
-  // }
-
-  // async findOne(id: number) {
-  //   return await this.eventRepo.findByIds([id]);
-  // }
-
-  // update(id: number, updateEventDto: UpdateEventDto) {
-  //   return `This action updates a #${id} event`;
-  // }
-
-  // remove(id: number) {
-  //   return `This action removes a #${id} event`;
-  // }
+  public async deleteEvent(id: number): Promise<DeleteResult> {
+    return await this.eventRepo
+      .createQueryBuilder('event')
+      .softDelete()
+      .where('id = :id', { id })
+      .execute();
+  }
 }

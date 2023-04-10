@@ -9,6 +9,8 @@ import {
   HttpCode,
   NotFoundException,
   Query,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -39,8 +41,17 @@ export class EventsController {
   }
 
   @Get()
-  findAll(@Query() filter: ListEvents) {
-    const events = this.eventsService.getEventsWithAttenddeeCountFilter(filter);
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async findAll(@Query() filter: ListEvents) {
+    const events =
+      await this.eventsService.getEventsWithAttendeeCountFilteredPaginated(
+        filter,
+        {
+          total: true,
+          currentPage: filter.page,
+          limit: 5,
+        },
+      );
 
     return events;
   }
@@ -122,12 +133,12 @@ export class EventsController {
   @Delete(':id')
   @HttpCode(204)
   async remove(@Param('id') id: string) {
-    const event = await this.eventRepo.findOneBy({ id: +id });
+    const result = await this.eventsService.deleteEvent(+id);
 
-    if (!event) {
+    if (result.affected !== 1) {
       throw new NotFoundException();
     }
 
-    this.eventRepo.softRemove(event);
+    return result;
   }
 }
