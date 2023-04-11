@@ -1,3 +1,4 @@
+import { Expose } from 'class-transformer';
 import { Event } from 'src/events/entities/event.entity';
 import {
   Column,
@@ -18,17 +19,24 @@ export enum AttendeeAnswerEnum {
 @Entity()
 export class Attendee {
   @PrimaryGeneratedColumn()
+  @Expose()
   id: number;
+
   @Column()
+  @Expose()
   name: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
+
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
   @Column('enum', {
     enum: AttendeeAnswerEnum,
     default: AttendeeAnswerEnum.Accepted,
   })
+  @Expose()
   answer: AttendeeAnswerEnum;
 
   // Relations

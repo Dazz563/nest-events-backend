@@ -21,11 +21,30 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
+  // async validate(payload: any): Promise<any> {
+  //   return await this.userRepo.findOne({
+  //     where: {
+  //       id: payload.sub,
+  //     },
+  //   });
+  // }
+
   async validate(payload: any): Promise<any> {
-    return await this.userRepo.findOne({
+    this.logger.debug(`Validating JWT payload: ${JSON.stringify(payload)}`);
+
+    const user = await this.userRepo.findOne({
       where: {
         id: payload.sub,
       },
     });
+
+    if (!user) {
+      this.logger.debug(`User not found for id ${payload.sub}`);
+      throw new UnauthorizedException();
+    }
+
+    this.logger.debug(`Returning user: ${JSON.stringify(user)}`);
+
+    return user;
   }
 }

@@ -13,6 +13,9 @@ import {
   ValidationPipe,
   UseGuards,
   ForbiddenException,
+  SerializeOptions,
+  UseInterceptors,
+  ClassSerializerInterceptor,
 } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -25,8 +28,11 @@ import { ListEvents } from './dto/lists-events';
 import { CurrentUser } from 'src/auth/current-user.decorator';
 import { User } from 'src/auth/entities/user.entity';
 import { AuthGuard } from '@nestjs/passport';
+import { Roles } from 'src/auth/guards/roles.decorator';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
 
 @Controller('events')
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class EventsController {
   constructor(
     @InjectRepository(Event)
@@ -38,7 +44,7 @@ export class EventsController {
   ) {}
 
   @Post()
-  @UseGuards(AuthGuard('jwt'))
+  @Roles('admin', 'vendor')
   async create(
     @Body() createEventDto: CreateEventDto,
     @CurrentUser() user: User,
@@ -47,6 +53,7 @@ export class EventsController {
   }
 
   @Get()
+  @Roles('admin', 'vendor')
   @UsePipes(new ValidationPipe({ transform: true }))
   async findAll(@Query() filter: ListEvents) {
     const events =
@@ -62,52 +69,8 @@ export class EventsController {
     return events;
   }
 
-  // @Get('/practice')
-  // Loading relations with eager loading
-  // async practice() {
-  //   return await this.eventRepo.findOne({
-  //     where: {
-  //       id: 1,
-  //     },
-  //     // loadEagerRelations: false,
-  //     relations: ['attendees'],
-  //   });
-  // }
-  // Associating entities
-  // async practice() {
-  //   const event = await this.eventRepo.findOne({
-  //     where: {
-  //       id: 1,
-  //     },
-  //   });
-
-  //   const attendee = new Attendee();
-  //   attendee.name = 'John Doe';
-  //   attendee.event = event;
-
-  //   await this.attendeeRepo.save(attendee);
-
-  //   return event;
-  // }
-  // Saving attendee using cascade
-  // async practice() {
-  //   const event = await this.eventRepo.findOne({
-  //     where: {
-  //       id: 1,
-  //     },
-  //     relations: ['attendees'],
-  //   });
-
-  //   const attendee = new Attendee();
-  //   attendee.name = 'Using cascade';
-
-  //   event.attendees.push(attendee);
-
-  //   await this.eventRepo.save(event);
-
-  //   return event;
-  // }
   @Get(':id')
+  @Roles('admin', 'vendor')
   async findOne(@Param('id') id: string) {
     const event = await this.eventsService.getEvent(+id);
 
@@ -119,19 +82,22 @@ export class EventsController {
   }
 
   @Patch(':id')
-  @UseGuards(AuthGuard('jwt'))
+  @Roles('admin', 'vendor')
   async update(
     @Param('id') id: string,
     @Body() updateEventDto: UpdateEventDto,
     @CurrentUser() user: User,
   ) {
-    const event = await this.eventsService.getEvent(+id);
+    console.log('Your user', user);
+    // const event = await this.eventsService.getEvent(+id);
+    const event = await this.eventRepo.findOneBy({ id: +id });
+    console.log('Your event', event);
 
     // check if event exists
     if (!event) {
       throw new NotFoundException();
     }
-
+    //
     // check user is the owner of the event
     if (event.organizerId !== user.id) {
       throw new ForbiddenException(null, `You're not the owner of this event`);
@@ -141,10 +107,11 @@ export class EventsController {
   }
 
   @Delete(':id')
-  @UseGuards(AuthGuard('jwt'))
+  @Roles('admin', 'vendor')
   @HttpCode(204)
   async remove(@Param('id') id: string, @CurrentUser() user: User) {
     const event = await this.eventRepo.findOneBy({ id: +id });
+    console.log('Your user', user);
 
     // check if event exists
     if (!event) {
